@@ -17,6 +17,9 @@ router.get('/webhooks', (req, res) => res.status(200).json({ message: 'ok' }))
 
 // Route to receive the ShipStation New Order Webhook
 router.post('/webhooks/shipstation/on-new-orders', async (req, res) => {
+  console.log(JSON.stringify(req.headers, null, 2)) // eslint-disable-line no-console
+  console.log(JSON.stringify(req.body, null, 2)) // eslint-disable-line no-console
+  // process.exit(0)
   const response = await webhooks.shipstation.onNewOrders(req, res)
   res.status(response?.error ? 500 : 200).json(response)
 })
