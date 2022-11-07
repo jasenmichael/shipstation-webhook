@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "vue/script-indent": ["error", 2, { "baseIndent": 0 }],
+    "vue/component-tags-order": "off",
+    "vue/order-in-components": "off",
+    "vue/no-lone-template": "off"
+  },
+  "extends": [
+    "@system76"
+  ]
+}
