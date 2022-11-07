@@ -24,5 +24,5 @@ router.post('/webhooks/shipstation/on-new-orders', async (req, res) => {
 if (isServerless) {
   module.exports = app
 } else {
-  module.exports = app.listen(process.env.PORT || 3005, () => console.log('App listening on port 3005!'))
+  module.exports = app.listen(process.env.PORT || 3005, () => console.log('App listening on port 3005!')) /* eslint-disable-line no-console */
 }

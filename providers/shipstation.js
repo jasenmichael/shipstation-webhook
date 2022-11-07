@@ -30,7 +30,7 @@ const onNewOrders = async ({ body }) => {
       // .filter(order => order.advancedOptions.customField1.includes('vendor-split')) // only orders that need to be split
 
     if (newOrders.length) {
-      // get the Shipstation warehouses
+      // get the Shipstation warehouses, users, and default warehouse
       warehouses = (await api('/warehouses')).data
       users = (await api('/users?showInactive=false')).data
       defaultWarehouse = warehouses.find(warehouse => warehouse.isDefault)
@@ -57,7 +57,7 @@ const onNewOrders = async ({ body }) => {
 
         if (!newOrdersUpdatedResponse.hasErrors) {
           /* ## ASIGN USERS TO ORDERS
-           * Shipstation will not run automation on orders after they are added, unless you manually click "Reprocess Automation Rules" in the shipstaion ui.
+           * Shipstation will not re-run automation on orders after they are updated, unless you manually click "Reprocess Automation Rules" in the shipstaion ui.
            * We must assign the warehouse user to the order after it is created, therfore we must make another api call (per order) to assign the user.
            */
           console.log(' 👥 Assigning users to updated orders')
@@ -110,10 +110,10 @@ const api = async (endpoint, method = 'get', body) => {
     }
 
     axiosRetry(axios, {
-      retries: 3, // number of retries
+      retries: 3,
       retryDelay: (retryCount) => {
         console.log(`retry attempt: ${retryCount}`)
-        return retryCount * 2000 // time interval between retries
+        return retryCount * 2000
       }
     })
 
@@ -129,6 +129,7 @@ module.exports = {
 }
 
 /* HELPERS */
+
 /**
  * Gets the warehouses from the order
  *
@@ -148,10 +149,10 @@ const getOrderWarehouses = order => [...new Set(order.items.map(item => item.opt
 const orderSplit = (order, orderWarehouses) => {
   /* If orderWarehouses contains defaultWarehouse, put defaultWarehouse first in the array.
    *
-   * This is important because Shipstation only allows setting "ship from" on initial order creation (add by Shopify, or when split by this webhook),
-   * for orders that need to be split, they get set to the default warehouse on creation
-   * that way if the order is split, the default warehouse will be the first warehouse in the array,
-   * and all split items will be newly created orders set with their warehouse
+   * This is important because Shipstation only allows setting "ship from" on initial order creation (added by Shopify, or when split by this webhook).
+   * For orders that need to be split, they get set to the default warehouse on creation,
+   * and all split items will be newly created orders set with their warehouse.
+   * If the order does not need to be split(has one warehouse), then it will be already be set to the correct warehouse.
    */
   if (orderWarehouses.includes(defaultWarehouse.warehouseName)) {
     orderWarehouses = orderWarehouses.sort(a => a === defaultWarehouse.warehouseName ? -1 : 1)
@@ -165,7 +166,7 @@ const orderSplit = (order, orderWarehouses) => {
     const orderNumber = tmpOrderToSplit.orderNumber.includes('-') ? tmpOrderToSplit.orderNumber.split('-')[0] : tmpOrderToSplit.orderNumber
     tmpOrderToSplit.orderNumber = `${orderNumber}-${warehouse}`
     tmpOrderToSplit.warehouseLocation = warehouse
-    tmpOrderToSplit.advancedOptions.warehouseId = getWarehouseIdByWarehouseName(warehouse, warehouses)
+    tmpOrderToSplit.advancedOptions.warehouseId = getWarehouseIdByName(warehouse, warehouses)
 
     // If not the first order, we remove some fields so a new order is created.
     if (i !== 0) {
@@ -195,13 +196,13 @@ const orderUpdate = (order) => {
     warehouseLocation,
     advancedOptions: {
       ...order.advancedOptions,
-      warehouseId: getWarehouseIdByWarehouseName(warehouseLocation, warehouses),
+      warehouseId: getWarehouseIdByName(warehouseLocation, warehouses),
       customField1: [...new Set((`webhook_processed, vendor-${warehouseLocation.toLowerCase()}, ` + order.advancedOptions.customField1)
         .replace(/vendor-split/g, 'order_split')
         .split(', '))].join(', ')
     },
     items: order.items.map(item => orderItemUpdate(item, { warehouseLocation })),
-    userId: getUserIdByWarehouseName(warehouseLocation, users)
+    userId: getUserIdByName(warehouseLocation, users)
   }
 }
 
@@ -218,7 +219,7 @@ const orderItemUpdate = (orderItem) => {
   return {
     ...orderItem,
     warehouseLocation,
-    warehouseId: getWarehouseIdByWarehouseName(warehouseLocation, warehouses)
+    warehouseId: getWarehouseIdByName(warehouseLocation, warehouses)
   }
 }
 
@@ -230,7 +231,7 @@ const orderItemUpdate = (orderItem) => {
  *
  * @return {number} the warehouse id
  */
-const getUserIdByWarehouseName = (warehouseName, users) => users.find(user => user.name === warehouseName).userId
+const getUserIdByName = (name, users) => users.find(user => user.name === name).userId
 
 /**
  * Gets the warehouse id by warehouse name
@@ -240,4 +241,4 @@ const getUserIdByWarehouseName = (warehouseName, users) => users.find(user => us
  *
  * @return {number} the warehouse id
  */
-const getWarehouseIdByWarehouseName = (warehouseName, warehouses) => warehouses.find(warehouse => warehouse.warehouseName === warehouseName).warehouseId
+const getWarehouseIdByName = (warehouseName, warehouses) => warehouses.find(warehouse => warehouse.warehouseName === warehouseName).warehouseId
